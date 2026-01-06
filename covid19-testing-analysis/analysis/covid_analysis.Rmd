@@ -1,0 +1,162 @@
+---
+title: "COVID-19 Testing Analysis"
+author: "Jianxuan Li"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+## Introduction
+This project investigates global COVID-19 testing and case trends using a real-world dataset. This analysis tries to provide an answer to this question: Which countries have reported the highest number of positive cases in relation to the number of tests conducted?
+
+## Understanding the Data
+The COVID-19 testing dataset used in this analysis was downloaded from Kaggle. This dataset was collected between the 20th of January and the 1st of June 2020. The data is used in this project for educational and exploratory analysis purposes.
+
+```{r libraries, message=FALSE, warning=FALSE}
+library(readr)
+library(dplyr)
+library(tibble)
+```
+
+```{r load-data}
+# store the dataframe in the variable named covid_df
+covid_df <- read_csv("../data/covid19.csv", show_col_types = FALSE)
+vector_cols <- colnames(covid_df)
+# display the summary of the covid_df dataset
+glimpse(covid_df)
+```
+The dataset contains **`r dim(covid_df)[1]` rows** and **`r dim(covid_df)[2]` columns**.
+
+## Isolating the Rows We Need
+The dataset contains COVID-19 records reported at different geographical levels, including country-level and state/province-level data. Since mixing these levels would bias country-level comparisons, this analysis focuses only on country-level records. These records are identified by the value "All States" in the Province_State column.
+
+```{r}
+# filter the rows related to "All States" and remove the Province_State column
+covid_df_all_states <- covid_df %>%
+     filter(Province_State == "All States") %>%
+     select(-Province_State)
+```
+
+## Isolating the Columns We Need
+The dataset includes both cumulative and daily data. Since cumulative and daily values are not directly comparable, this analysis focuses on daily measures only to avoid biased interpretations. Therefore, we work mainly with daily data.
+
+```{r}
+# select columns related to the daily measures, from the covid_df_all_states
+covid_df_all_states_daily <- covid_df_all_states %>%
+     select(Date, Country_Region, active, hospitalizedCurr, daily_tested, daily_positive)
+```
+
+## Extracting the Top Ten Countries with Most Covid-19 Cases
+To identify the countries most impacted by COVID-19 testing activity, daily records are aggregated at the country level. The aggregated results are then ordered to extract the top ten countries by total number of tests conducted.
+
+```{r}
+# group rows by Country_Region column, compute the sum for each column, and arrange the tested column in descending order
+covid_df_all_states_daily_sum <- covid_df_all_states_daily %>%
+     group_by(Country_Region) %>%
+     summarize(
+         tested = sum(daily_tested, na.rm = TRUE),
+         positive = sum(daily_positive, na.rm = TRUE),
+         active = sum(active, na.rm = TRUE),
+         hospitalized = sum(hospitalizedCurr, na.rm = TRUE)
+     ) %>%
+     arrange(desc(tested))
+# extract the top ten rows
+covid_top_10 <- head(covid_df_all_states_daily_sum, 10)
+```
+
+## Identifying the Highest Positive Against Tested Cases
+The goal of this step is to answer the question: Which countries have had the highest number of positive cases against the number of tests?
+To compare COVID-19 positivity across countries, we compute the ratio of total positive cases to total tests conducted for the top ten countries by testing volume.
+
+```{r}
+# create the countries vector that contains the Country_Region column values
+countries <- c(covid_top_10$Country_Region)
+tested_cases <- covid_top_10$tested
+positive_cases <- covid_top_10$positive
+active_cases <- covid_top_10$active
+hospitalized_cases <- covid_top_10$hospitalized
+# name the previous vectors with the country names' vector
+names(tested_cases) <- countries
+names(positive_cases) <- countries
+names(active_cases) <- countries
+names(hospitalized_cases) <- countries
+positive_tested_ratio <- positive_cases / tested_cases
+# identify the top three ratio
+positive_tested_top_3 <- sort(positive_tested_ratio, decreasing = TRUE)[1:3]
+```
+
+The top three countries with the highest positive-to-tested ratios are: **`r names(positive_tested_top_3)`**. Therefore, to answer the question of this part, **`r names(positive_tested_top_3)[1]`** has the highest number of positive cases against the number of tests.
+
+## Keeping relevant information
+The goal in this step is to find a way to keep all the information available for the top three countries that have had the highest number of positive cases against the number of tests carried out.
+
+```{r}
+united_kingdom <- c(0.11, 1473672, 166909, 0, 0)
+united_states <- c(0.10, 17282363, 1877179, 0, 0)
+turkey <- c(0.08, 2031192, 163941, 2980960, 0)
+# create a matrix combining these 3 vectors
+covid_mat <- rbind(united_kingdom, united_states, turkey)
+# rename the columns of this matrix
+colnames(covid_mat) <- c("Ratio", "tested", "positive", "active", "hospitalized")
+# Display the matrix
+covid_mat
+```
+
+## Putting all together
+In this step, all results and data structures are combined into a single list to create a clear and structured overview of the analysis.
+
+So far, we have created several data structures such as:
+Dataframes: covid_df, covid_df_all_states, covid_df_all_states_daily, and covid_top_10.
+Matrix: covid_mat.
+Vectors: vector_cols and countries.
+
+```{r}
+question <- "Which countries have had the highest number of positive cases against the number of tests?"
+answer <- c("Positive tested cases" = positive_tested_top_3)
+# create a list that contains the dataframes
+dataframes_list <- list(
+  covid_df                  = covid_df,
+  covid_df_all_states       = covid_df_all_states,
+  covid_df_all_states_daily = covid_df_all_states_daily,
+  covid_top_10              = covid_top_10
+)
+# create a list that contains the matrix
+matrices_list <- list(
+  covid_mat = covid_mat
+)
+# create a list that contains the vectors
+vectors_list <- list(
+  vector_cols = vector_cols,
+  countries   = countries
+)
+# create a named list that contains the three previous lists
+data_structure_list <- list(
+  dataframes = dataframes_list,
+  matrices   = matrices_list,
+  vectors    = vectors_list
+)
+covid_analysis_list <- list(
+  question = question,
+  answer   = answer,
+  data     = data_structure_list
+)
+```
+
+## Conclusion
+
+In this project, we analyzed a real-world COVID-19 dataset using R Markdown to investigate testing data. By cleaning and aggregating the data, we identified the top ten countries with the highest numbers of positive cases relative to the number of tests conducted, as well as the top three countries with the highest positive-to-tested ratios. The answer to the initial question, “Which country has reported the highest number of positive cases in relation to the number of tests conducted?”, is the United Kingdom.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
